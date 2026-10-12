@@ -12,7 +12,11 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / 'data'
 DATA.mkdir(exist_ok=True)
 BASE = 'https://openapi.twse.com.tw/v1/exchangeReport/'
-URLS = {'prices': BASE + 'STOCK_DAY_ALL', 'institutional': BASE + 'T86'}
+URLS = {
+    'prices': BASE + 'STOCK_DAY_ALL',
+    'institutional': 'https://www.twse.com.tw/rwd/zh/fund/T86?date=20261008&selectType=ALLBUT0999&response=json'
+}
+
 
 def fetch(url):
     req = urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0 TWStockRadar/1.1', 'Accept':'application/json'})
@@ -38,14 +42,27 @@ def parse_prices(rows):
             out[sid] = {'id':sid, 'name':r.get('Name', r.get('證券名稱','')), 'close':close, 'volume':volume}
     return out
 
+
 def parse_institutional(rows):
     out = {}
     for r in rows:
-        sid = str(r.get('證券代號', r.get('Code', ''))).strip()
-        foreign = num(r.get('外陸資買賣超股數(不含外資自營商)', r.get('外資及陸資買賣超股數(不含外資自營商)')))
-        trust = num(r.get('投信買賣超股數'))
-        if len(sid) == 4 and sid.isdigit() and (foreign is not None or trust is not None):
-            out[sid] = {'foreign':foreign, 'trust':trust}
+        if not isinstance(r, list) or len(r) < 11:
+            continue
+
+        sid = str(r[0]).strip()
+        foreign = num(r[4])
+        trust = num(r[10])
+
+        if (
+            len(sid) == 4
+            and sid.isdigit()
+            and foreign is not None
+            and trust is not None
+        ):
+            out[sid] = {
+                'foreign': foreign,
+                'trust': trust
+            }
     return out
 
 def main():
@@ -58,12 +75,25 @@ def main():
     except Exception as e:
         prices = {}
         errors.append('價格：'+str(e))
+   
     try:
-        inst = parse_institutional(fetch(URLS['institutional']))
-        if len(inst) < 100: raise ValueError('Not enough valid institutional data')
+        req = urllib.request.Request(
+            URLS['institutional'],
+            headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=40) as resp:
+            payload = json.load(resp)
+
+        if payload.get('stat') != 'OK':
+            raise ValueError('T86: ' + str(payload.get('stat')))
+
+        inst = parse_institutional(payload.get('data', []))
+        if len(inst) < 100:
+            raise ValueError('Not enough valid institutional data')
     except Exception as e:
         inst = {}
-        errors.append('法人：'+str(e))
+        errors.append('法人：' + str(e))
+
 
     # The TWSE OpenAPI endpoints can return a prior session on a holiday.
     # Do not label collection date as verified exchange trading date or count
