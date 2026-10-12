@@ -3,6 +3,8 @@
 Only official daily snapshots; do not assert verified trade dates or missing signals.
 """
 import json
+import csv
+import io
 import urllib.request
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
@@ -300,6 +302,55 @@ def check_margin_decline(sid, history):
 
 
 
+def fetch_tdcc():
+    req = urllib.request.Request(
+        URLS['tdcc'],
+        headers={'User-Agent': 'Mozilla/5.0'}
+    )
+
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        raw = resp.read()
+
+    text = raw.decode('utf-8-sig')
+    rows = list(csv.DictReader(io.StringIO(text)))
+
+    if not rows:
+        raise ValueError('TDCC CSV 沒有資料')
+
+    result = {}
+
+    for row in rows:
+        sid = str(row.get('證券代號', '')).strip()
+        date = str(row.get('資料日期', '')).strip()
+        level = str(row.get('持股分級', '')).strip()
+
+        if len(sid) != 4 or not sid.isdigit():
+            continue
+
+        if sid not in result:
+            result[sid] = {'date': date}
+
+        if level == '15':
+            result[sid]['large_holder_pct'] = num(
+                row.get('占集保庫存數比例%')
+            )
+
+        elif level == '17':
+            result[sid]['shareholder_count'] = num(
+                row.get('人數')
+            )
+
+    valid = {
+        sid: data for sid, data in result.items()
+        if data.get('large_holder_pct') is not None
+        and data.get('shareholder_count') is not None
+    }
+
+    if len(valid) < 100:
+        raise ValueError('TDCC 有效股票資料不足')
+
+    return valid
+
 def main():
     now = datetime.now(timezone.utc)
     local = now.astimezone(ZoneInfo('Asia/Taipei'))
@@ -337,6 +388,15 @@ def main():
         margin_history = []
         errors.append('融資：' + str(e))
         print('Margin history error:', str(e))
+
+
+    try:
+        tdcc = fetch_tdcc()
+        print('TDCC records:', len(tdcc))
+    except Exception as e:
+        tdcc = {}
+        errors.append('TDCC：' + str(e))
+        print('TDCC error:', str(e))
 
 
     stocks = []
