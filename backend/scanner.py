@@ -17,14 +17,20 @@ URLS = {
     'institutional': 'https://www.twse.com.tw/rwd/zh/fund/T86'
 }
 
+
 def fetch_latest_institutional():
     today = datetime.now(ZoneInfo('Asia/Taipei')).date()
-    last_error = None
+    history = []
+    seen_dates = set()
 
-    for days_back in range(10):
-        trade_day = today - timedelta(days=days_back)
-        date_str = trade_day.strftime('%Y%m%d')
+    for days_back in range(15):
+        day = today - timedelta(days=days_back)
 
+        # 週六、週日不查詢
+        if day.weekday() >= 5:
+            continue
+
+        date_str = day.strftime('%Y%m%d')
         url = (
             URLS['institutional']
             + '?date=' + date_str
@@ -45,24 +51,39 @@ def fetch_latest_institutional():
             if payload.get('stat') != 'OK':
                 continue
 
-            inst = parse_institutional(payload.get('data', []))
-
-         
             response_date = str(payload.get('date', '')).strip()
+            if response_date != date_str:
+                continue
 
-            if (
-                len(inst) >= 100
-                and response_date == date_str
-            ):
-                return inst, trade_day.isoformat()
+            inst = parse_institutional(payload.get('data', []))
+            if len(inst) < 100:
+                continue
+
+            iso_date = day.isoformat()
+            if iso_date in seen_dates:
+                continue
+
+            history.append({
+                'date': iso_date,
+                'stocks': inst
+            })
+            seen_dates.add(iso_date)
+
+            print('Verified institutional date:', iso_date,
+                  'records:', len(inst))
+
+            if len(history) == 3:
+                break
 
         except Exception as e:
-            last_error = e
+            print('T86 query failed:', date_str, str(e))
 
-    raise ValueError(
-        '最近10天找不到有效法人資料：' + str(last_error)
-    )
+    if len(history) != 3:
+        raise ValueError(
+            '三日法人資料不足，目前取得 ' + str(len(history)) + ' 日'
+        )
 
+    return history
 
 def fetch(url):
     req = urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0 TWStockRadar/1.1', 'Accept':'application/json'})
@@ -123,10 +144,15 @@ def main():
         errors.append('價格：'+str(e))
    
     
+  
     try:
-        inst, institutional_date = fetch_latest_institutional()
+        institutional_history = fetch_latest_institutional()
+        inst = institutional_history[0]['stocks']
+        institutional_date = institutional_history[0]['date']
         print('Institutional trade date:', institutional_date)
+        print('Institutional history days:', len(institutional_history))
     except Exception as e:
+        institutional_history = []
         inst = {}
         institutional_date = ''
         errors.append('法人：' + str(e))
