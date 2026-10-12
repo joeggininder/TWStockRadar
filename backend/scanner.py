@@ -16,7 +16,8 @@ BASE = 'https://openapi.twse.com.tw/v1/exchangeReport/'
 URLS = {
     'prices': BASE + 'STOCK_DAY_ALL',
     'institutional': 'https://www.twse.com.tw/rwd/zh/fund/T86',
-    'margin': 'https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN'
+    'margin': 'https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN',
+    'tdcc': 'https://opendata.tdcc.com.tw/getOD.ashx?id=1-5'
 }
 
 
