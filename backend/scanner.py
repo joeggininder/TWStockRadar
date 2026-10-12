@@ -70,8 +70,7 @@ def main():
     # consecutive sessions until an official dated source is integrated.
     stocks = []
     for sid, p in prices.items():
-        if sid not in inst: continue
-        flow = inst[sid]
+        flow = inst.get(sid, {'foreign': None, 'trust': None})
         stocks.append({'id':sid, 'name':p['name'], 'close':p['close'],
                        'trade_date':'',
                        'checks':{'institutional':False, 'holders':False, 'retail':False, 'brokers':False},
