@@ -132,6 +132,38 @@ def parse_institutional(rows):
             }
     return out
 
+def check_three_day_buying(sid, history):
+    records = []
+
+    for day in history:
+        flow = day['stocks'].get(sid)
+
+        if flow is None:
+            return False, records
+
+        foreign = flow.get('foreign')
+        trust = flow.get('trust')
+
+        if foreign is None or trust is None:
+            return False, records
+
+        records.append({
+            'date': day['date'],
+            'foreign_net_shares': foreign,
+            'trust_net_shares': trust
+        })
+
+    passed = (
+        len(records) == 3
+        and all(
+            r['foreign_net_shares'] > 0
+            and r['trust_net_shares'] > 0
+            for r in records
+        )
+    )
+
+    return passed, records
+
 def main():
     now = datetime.now(timezone.utc)
     local = now.astimezone(ZoneInfo('Asia/Taipei'))
@@ -164,14 +196,29 @@ def main():
     stocks = []
     for sid, p in prices.items():
         flow = inst.get(sid, {'foreign': None, 'trust': None})
+        
+        institutional_passed, institutional_records = (
+            check_three_day_buying(sid, institutional_history)
+        )
+
         stocks.append({'id':sid, 'name':p['name'], 'close':p['close'],
                        'trade_date':'',
-                       'checks':{'institutional':False, 'holders':False, 'retail':False, 'brokers':False},
+                      
+                       'checks':{'institutional':institutional_passed, 'holders':False, 'retail':False, 'brokers':False},
+
                        'evidence':{'volume_shares':p['volume'],
                                    'foreign_net_shares':flow['foreign'],
                                    'trust_net_shares':flow['trust'],
                                    'collection_date_tw':local.date().isoformat(),
-                                   'institutional':'需交易日驗證與連續3日歷史資料',
+
+                                   'institutional': (
+                                       '外資與投信皆連續三個有效交易日買超'
+                                       if institutional_passed
+                                       else '未符合或三日法人資料不完整'
+                                   ),
+                                   'institutional_history': institutional_records,
+                                   'institutional_trade_date': institutional_date,
+
                                    'holders':'TDCC待接入', 'retail':'融資待接入',
                                    'brokers':'券商分點待接入'},
                        'sources':list(URLS.values())})
