@@ -270,6 +270,33 @@ def fetch_margin_history():
 
     return history
 
+def check_margin_decline(sid, history):
+    if len(history) != 4:
+        return False, []
+
+    records = []
+
+    for day in history:
+        balance = day['stocks'].get(sid)
+
+        if balance is None:
+            return False, records
+
+        records.append({
+            'date': day['date'],
+            'margin_balance': balance
+        })
+
+    balances = [r['margin_balance'] for r in records]
+
+    passed = (
+        balances[0] < balances[1]
+        and balances[1] < balances[2]
+        and balances[2] < balances[3]
+    )
+
+    return passed, records
+
 
 
 def main():
@@ -319,10 +346,16 @@ def main():
             check_three_day_buying(sid, institutional_history)
         )
 
+        margin_passed, margin_records = (
+            check_margin_decline(sid, margin_history)
+        )
+
         stocks.append({'id':sid, 'name':p['name'], 'close':p['close'],
                        'trade_date':'',
                       
-                       'checks':{'institutional':institutional_passed, 'holders':False, 'retail':False, 'brokers':False},
+                      
+                    'checks':{'institutional':institutional_passed, 'holders':False, 'retail':margin_passed, 'brokers':False},
+
 
                        'evidence':{'volume_shares':p['volume'],
                                    'foreign_net_shares':flow['foreign'],
@@ -335,6 +368,7 @@ def main():
                                        else '未符合或三日法人資料不完整'
                                    ),
                                    'institutional_history': institutional_records,
+                                   'margin_history': margin_records,
                                    'institutional_trade_date': institutional_date,
 
                                    'holders':'TDCC待接入', 'retail':'融資待接入',
@@ -349,6 +383,17 @@ def main():
     print('Three-day institutional matches:', len(institutional_matches))
     print('Matched stock IDs:', ', '.join(
         s['id'] for s in institutional_matches
+    ))
+
+    two_signal_matches = [
+        s for s in stocks
+        if s['checks']['institutional']
+        and s['checks']['retail']
+    ]
+
+    print('Two-signal matches:', len(two_signal_matches))
+    print('Two-signal stock IDs:', ', '.join(
+        s['id'] for s in two_signal_matches
     ))
 
     payload = {'generated_at':now.isoformat(), 'stocks':stocks,
