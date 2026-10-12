@@ -12,9 +12,11 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / 'data'
 DATA.mkdir(exist_ok=True)
 BASE = 'https://openapi.twse.com.tw/v1/exchangeReport/'
+
 URLS = {
     'prices': BASE + 'STOCK_DAY_ALL',
-    'institutional': 'https://www.twse.com.tw/rwd/zh/fund/T86'
+    'institutional': 'https://www.twse.com.tw/rwd/zh/fund/T86',
+    'margin': 'https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN'
 }
 
 
@@ -164,6 +166,112 @@ def check_three_day_buying(sid, history):
 
     return passed, records
 
+def parse_margin(payload):
+    result = {}
+
+    for table in payload.get('tables', []):
+        fields = table.get('fields', [])
+
+        # 找到含個股融資餘額的資料表
+        if '代號' not in fields or '名稱' not in fields:
+            continue
+
+        # 證交所此表有兩組「今日餘額」
+        # 第一組為融資，第二組為融券
+        balance_indices = [
+            i for i, field in enumerate(fields)
+            if field == '今日餘額'
+        ]
+
+        if len(balance_indices) < 2:
+            continue
+
+        balance_index = balance_indices[0]
+        code_index = fields.index('代號')
+
+        for row in table.get('data', []):
+            if len(row) <= max(code_index, balance_index):
+                continue
+
+            sid = str(row[code_index]).strip()
+            balance = num(row[balance_index])
+
+            if len(sid) == 4 and sid.isdigit() and balance is not None:
+                result[sid] = balance
+
+    return result
+
+def fetch_margin_history():
+    today = datetime.now(ZoneInfo('Asia/Taipei')).date()
+    history = []
+    seen_dates = set()
+
+    for days_back in range(20):
+        day = today - timedelta(days=days_back)
+
+        if day.weekday() >= 5:
+            continue
+
+        date_str = day.strftime('%Y%m%d')
+        url = (
+            URLS['margin']
+            + '?date=' + date_str
+            + '&selectType=ALL&response=json'
+        )
+
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    'User-Agent': 'Mozilla/5.0',
+                    'Accept': 'application/json'
+                }
+            )
+
+            with urllib.request.urlopen(req, timeout=40) as resp:
+                payload = json.load(resp)
+
+            if payload.get('stat') != 'OK':
+                continue
+
+            if str(payload.get('date', '')).strip() != date_str:
+                continue
+
+            margin = parse_margin(payload)
+
+            if len(margin) < 100:
+                continue
+
+            iso_date = day.isoformat()
+
+            if iso_date in seen_dates:
+                continue
+
+            history.append({
+                'date': iso_date,
+                'stocks': margin
+            })
+            seen_dates.add(iso_date)
+
+            print('Verified margin date:', iso_date,
+                  'records:', len(margin))
+
+            if len(history) == 4:
+                break
+
+        except Exception as e:
+            print('Margin query failed:', date_str, str(e))
+
+    if len(history) != 4:
+        raise ValueError(
+            '融資資料不足四日，目前取得 '
+            + str(len(history)) + ' 日'
+        )
+
+    return history
+
+
+
 def main():
     now = datetime.now(timezone.utc)
     local = now.astimezone(ZoneInfo('Asia/Taipei'))
@@ -193,6 +301,16 @@ def main():
     # The TWSE OpenAPI endpoints can return a prior session on a holiday.
     # Do not label collection date as verified exchange trading date or count
     # consecutive sessions until an official dated source is integrated.
+    
+    try:
+        margin_history = fetch_margin_history()
+        print('Margin history days:', len(margin_history))
+    except Exception as e:
+        margin_history = []
+        errors.append('融資：' + str(e))
+        print('Margin history error:', str(e))
+
+
     stocks = []
     for sid, p in prices.items():
         flow = inst.get(sid, {'foreign': None, 'trust': None})
