@@ -5,7 +5,7 @@ Only official daily snapshots; do not assert verified trade dates or missing sig
 import json
 import urllib.request
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -14,8 +14,48 @@ DATA.mkdir(exist_ok=True)
 BASE = 'https://openapi.twse.com.tw/v1/exchangeReport/'
 URLS = {
     'prices': BASE + 'STOCK_DAY_ALL',
-    'institutional': 'https://www.twse.com.tw/rwd/zh/fund/T86?date=20261008&selectType=ALLBUT0999&response=json'
+    'institutional': 'https://www.twse.com.tw/rwd/zh/fund/T86'
 }
+
+def fetch_latest_institutional():
+    today = datetime.now(ZoneInfo('Asia/Taipei')).date()
+    last_error = None
+
+    for days_back in range(10):
+        trade_day = today - timedelta(days=days_back)
+        date_str = trade_day.strftime('%Y%m%d')
+
+        url = (
+            URLS['institutional']
+            + '?date=' + date_str
+            + '&selectType=ALLBUT0999&response=json'
+        )
+
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    'User-Agent': 'Mozilla/5.0',
+                    'Accept': 'application/json'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=40) as resp:
+                payload = json.load(resp)
+
+            if payload.get('stat') != 'OK':
+                continue
+
+            inst = parse_institutional(payload.get('data', []))
+
+            if len(inst) >= 100:
+                return inst, trade_day.isoformat()
+
+        except Exception as e:
+            last_error = e
+
+    raise ValueError(
+        '最近10天找不到有效法人資料：' + str(last_error)
+    )
 
 
 def fetch(url):
@@ -76,22 +116,13 @@ def main():
         prices = {}
         errors.append('價格：'+str(e))
    
+    
     try:
-        req = urllib.request.Request(
-            URLS['institutional'],
-            headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'}
-        )
-        with urllib.request.urlopen(req, timeout=40) as resp:
-            payload = json.load(resp)
-
-        if payload.get('stat') != 'OK':
-            raise ValueError('T86: ' + str(payload.get('stat')))
-
-        inst = parse_institutional(payload.get('data', []))
-        if len(inst) < 100:
-            raise ValueError('Not enough valid institutional data')
+        inst, institutional_date = fetch_latest_institutional()
+        print('Institutional trade date:', institutional_date)
     except Exception as e:
         inst = {}
+        institutional_date = ''
         errors.append('法人：' + str(e))
 
 
