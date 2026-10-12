@@ -222,6 +222,17 @@ def main():
                                    'holders':'TDCC待接入', 'retail':'融資待接入',
                                    'brokers':'券商分點待接入'},
                        'sources':list(URLS.values())})
+        
+    institutional_matches = [
+        s for s in stocks
+        if s['checks']['institutional']
+    ]
+
+    print('Three-day institutional matches:', len(institutional_matches))
+    print('Matched stock IDs:', ', '.join(
+        s['id'] for s in institutional_matches
+    ))
+
     payload = {'generated_at':now.isoformat(), 'stocks':stocks,
                'notice':'已接入證交所上市股票公開行情與法人單日資料；尚未完成交易日驗證、連續買超、TDCC、融資及分點，所有四項訊號保守標示未驗證。' + (' 讀取錯誤：'+'；'.join(errors) if errors else ''),
                'source_status':{'prices':len(prices), 'institutional':len(inst), 'errors':errors}}
