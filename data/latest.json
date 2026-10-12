@@ -1,5 +1,12 @@
 {
-  "generated_at": "2026-10-11T13:07:54.517768+00:00",
+  "generated_at": "2026-10-12T08:02:01.932809+00:00",
   "stocks": [],
-  "notice": "尚未匯入可驗證的完整市場資料；不顯示假陽性。"
+  "notice": "已接入證交所上市股票公開行情與法人單日資料；尚未完成交易日驗證、連續買超、TDCC、融資及分點，所有四項訊號保守標示未驗證。 讀取錯誤：法人：Expecting value: line 1 column 1 (char 0)",
+  "source_status": {
+    "prices": 1091,
+    "institutional": 0,
+    "errors": [
+      "法人：Expecting value: line 1 column 1 (char 0)"
+    ]
+  }
 }
