@@ -47,7 +47,13 @@ def fetch_latest_institutional():
 
             inst = parse_institutional(payload.get('data', []))
 
-            if len(inst) >= 100:
+         
+            response_date = str(payload.get('date', '')).strip()
+
+            if (
+                len(inst) >= 100
+                and response_date == date_str
+            ):
                 return inst, trade_day.isoformat()
 
         except Exception as e:
