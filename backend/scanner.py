@@ -308,9 +308,23 @@ def fetch_tdcc():
         headers={'User-Agent': 'Mozilla/5.0'}
     )
 
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        raw = resp.read()
+       import time
 
+    raw = None
+
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                raw = resp.read()
+            break
+
+        except Exception as e:
+            print('TDCC download attempt', attempt + 1, 'failed:', str(e))
+
+            if attempt == 2:
+                raise
+
+            time.sleep(5)
     text = raw.decode('utf-8-sig')
     rows = list(csv.DictReader(io.StringIO(text)))
 
