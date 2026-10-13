@@ -303,14 +303,15 @@ def check_margin_decline(sid, history):
 
 
 def fetch_tdcc():
+    import time
+
     req = urllib.request.Request(
         URLS['tdcc'],
         headers={'User-Agent': 'Mozilla/5.0'}
     )
 
-       import time
-
     raw = None
+
 
     for attempt in range(3):
         try:
