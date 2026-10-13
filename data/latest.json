@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-13T05:29:11.397401+00:00",
+  "generated_at": "2026-10-13T05:40:40.026148+00:00",
   "stocks": [
     {
       "id": "0050",
@@ -69126,12 +69126,10 @@
       ]
     }
   ],
-  "notice": "已接入證交所上市股票公開行情與法人單日資料；尚未完成交易日驗證、連續買超、TDCC、融資及分點，所有四項訊號保守標示未驗證。 讀取錯誤：TDCC：<urlopen error timed out>",
+  "notice": "已接入證交所上市股票公開行情與法人單日資料；尚未完成交易日驗證、連續買超、TDCC、融資及分點，所有四項訊號保守標示未驗證。",
   "source_status": {
     "prices": 1092,
     "institutional": 1085,
-    "errors": [
-      "TDCC：<urlopen error timed out>"
-    ]
+    "errors": []
   }
 }
