@@ -316,9 +316,9 @@ def fetch_tdcc():
 
     if not rows:
         raise ValueError('TDCC CSV 沒有資料')
-print('TDCC CSV columns:', list(rows[0].keys()))
-print('TDCC first row:', rows[0])
-print('TDCC last row:', rows[-1])
+    print('TDCC CSV columns:', list(rows[0].keys()))
+    print('TDCC first row:', rows[0])
+    print('TDCC last row:', rows[-1])
     result = {}
 
     for row in rows:
