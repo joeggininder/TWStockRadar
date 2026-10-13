@@ -365,7 +365,27 @@ def fetch_tdcc():
 
     if len(valid) < 100:
         raise ValueError('TDCC 有效股票資料不足')
+    history_file = DATA / 'tdcc_history.json'
 
+    if history_file.exists():
+        history = json.loads(history_file.read_text(encoding='utf-8'))
+    else:
+        history = {}
+
+    for sid, item in valid.items():
+        date = item['date']
+
+        if date not in history:
+            history[date] = {}
+
+        history[date][sid] = item
+
+    history_file.write_text(
+        json.dumps(history, ensure_ascii=False, indent=2),
+        encoding='utf-8'
+    )
+
+    print('TDCC saved dates:', sorted(history.keys()))
     return valid
 
 def main():
