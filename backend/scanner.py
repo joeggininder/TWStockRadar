@@ -500,7 +500,7 @@ def main():
                        'trade_date':'',
                       
                       
-                    'checks':{'institutional':institutional_passed, 'holders':holders_passed, 'retail':margin_passed, 'brokers':False},
+                    'checks':{'institutional':institutional_passed, 'holders':holders_passed, 'retail':margin_passed},
 
 
                        'evidence':{'volume_shares':p['volume'],
@@ -563,7 +563,7 @@ def main():
         s['id'] for s in three_signal_matches
     ))
     payload = {'generated_at':now.isoformat(), 'stocks':stocks,
-               'notice':'已接入上市股票行情、法人連續三日買超、融資連續三日減少及TDCC股權分散資料。TDCC須累積至少兩週才能比較；券商分點尚未接入。僅在四項條件均通過驗證時列為完全符合。',
+'notice':'已接入上市股票行情、法人連續三日買超、融資連續三日減少及TDCC股權分散資料。TDCC須累積至少兩週才能比較；僅在三項條件均通過驗證時列為完全符合。',
                'source_status':{'prices':len(prices), 'institutional':len(inst), 'errors':errors}}
     (DATA/'latest.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
     print('Price records:',len(prices),'institutional:',len(inst),'output stocks:',len(stocks))
