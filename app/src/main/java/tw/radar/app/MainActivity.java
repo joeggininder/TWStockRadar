@@ -38,7 +38,7 @@ public class MainActivity extends Activity {
             try {
                 HttpURLConnection c=(HttpURLConnection)new URL(u).openConnection();c.setConnectTimeout(12000);c.setReadTimeout(15000);c.setRequestProperty("Accept","application/json");
                 if(c.getResponseCode()!=200)throw new IOException("HTTP "+c.getResponseCode());
-                ByteArrayOutputStream buf=new ByteArrayOutputStream();try(InputStream in=c.getInputStream()){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){buf.write(b,0,n);if(buf.size()>2000000)throw new IOException("回應過大");}}
+                ByteArrayOutputStream buf=new ByteArrayOutputStream();try(InputStream in=c.getInputStream()){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){buf.write(b,0,n);if(buf.size()>10000000)throw new IOException("回應過大");}}
                 JSONObject j=new JSONObject(buf.toString(StandardCharsets.UTF_8.name()));runOnUiThread(()->render(j));
             }catch(Exception e){runOnUiThread(()->status.setText("更新失敗："+e.getMessage()+"（保留上次畫面）"));}
         }).start();
