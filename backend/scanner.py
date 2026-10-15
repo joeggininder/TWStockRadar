@@ -387,7 +387,44 @@ def fetch_tdcc():
 
     print('TDCC saved dates:', sorted(history.keys()))
     return valid
+def check_tdcc_change(sid, tdcc_history):
+    dates = sorted(tdcc_history.keys(), reverse=True)
 
+    if len(dates) < 2:
+        return False, []
+
+    latest_date = dates[0]
+    previous_date = dates[1]
+
+    latest = tdcc_history[latest_date].get(sid)
+    previous = tdcc_history[previous_date].get(sid)
+
+    if not latest or not previous:
+        return False, []
+
+    latest_pct = latest.get('large_holder_pct')
+    previous_pct = previous.get('large_holder_pct')
+
+    latest_count = latest.get('shareholder_count')
+    previous_count = previous.get('shareholder_count')
+
+    if any(x is None for x in [
+        latest_pct, previous_pct,
+        latest_count, previous_count
+    ]):
+        return False, []
+
+    passed = (
+        latest_pct > previous_pct
+        and latest_count < previous_count
+    )
+
+    records = [
+        {'date': previous_date, **previous},
+        {'date': latest_date, **latest}
+    ]
+
+    return passed, records
 def main():
     now = datetime.now(timezone.utc)
     local = now.astimezone(ZoneInfo('Asia/Taipei'))
@@ -435,7 +472,16 @@ def main():
         errors.append('TDCC：' + str(e))
         print('TDCC error:', str(e))
 
+    history_file = DATA / 'tdcc_history.json'
 
+    if history_file.exists():
+        tdcc_history = json.loads(
+            history_file.read_text(encoding='utf-8')
+        )
+    else:
+        tdcc_history = {}
+
+    print('TDCC history dates:', sorted(tdcc_history.keys()))
     stocks = []
     for sid, p in prices.items():
         flow = inst.get(sid, {'foreign': None, 'trust': None})
@@ -447,12 +493,14 @@ def main():
         margin_passed, margin_records = (
             check_margin_decline(sid, margin_history)
         )
-
+        holders_passed, holders_records = check_tdcc_change(
+            sid, tdcc_history
+        )
         stocks.append({'id':sid, 'name':p['name'], 'close':p['close'],
                        'trade_date':'',
                       
                       
-                    'checks':{'institutional':institutional_passed, 'holders':False, 'retail':margin_passed, 'brokers':False},
+                    'checks':{'institutional':institutional_passed, 'holders':holders_passed, 'retail':margin_passed, 'brokers':False},
 
 
                        'evidence':{'volume_shares':p['volume'],
@@ -466,11 +514,21 @@ def main():
                                        else '未符合或三日法人資料不完整'
                                    ),
                                    'institutional_history': institutional_records,
+                                   'holders_history':holders_records,
                                    'margin_history': margin_records,
                                    'institutional_trade_date': institutional_date,
 
-                                   'holders':'TDCC待接入', 'retail':'融資待接入',
-                                   'brokers':'券商分點待接入'},
+                                   'holders':(
+    '大戶持股比例增加，且股東總人數減少'
+    if holders_passed
+    else '未符合條件或尚無足夠的兩週TDCC資料'
+),
+'retail':(
+    '融資餘額連續三個交易日減少'
+    if margin_passed
+    else '未符合融資連續減少條件或資料不足'
+),
+'brokers':'券商分點待接入'},
                        'sources':list(URLS.values())})
         
     institutional_matches = [
