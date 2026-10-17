@@ -430,28 +430,33 @@ def main():
     now = datetime.now(timezone.utc)
     local = now.astimezone(ZoneInfo('Asia/Taipei'))
     errors = []
+    
     try:
         prices = parse_prices(fetch(URLS['prices']))
         tpex_rows = fetch(URLS['tpex_prices'])
+
         for r in tpex_rows:
-              sid = str(r.get('SecuritiesCompanyCode', '')).strip()
-              close = num(r.get('Close'))
-            
-            
+            sid = str(r.get('SecuritiesCompanyCode', '')).strip()
+            close = num(r.get('Close'))
+
             if len(sid) == 4 and sid.isdigit() and close is not None:
-                    prices[sid] = {
-                        'id': sid,
-                        'name': r.get('CompanyName', ''),
-                        'close': close,
-                        'volume': num(r.get('TradingShares')) or 0,
-                        'trade_date': r.get('Date', '')
-                    }
+                prices[sid] = {
+                    'id': sid,
+                    'name': r.get('CompanyName', ''),
+                    'close': close,
+                    'volume': num(r.get('TradingShares')) or 0,
+                    'trade_date': r.get('Date', '')
+                }
 
         print('TPEx sample:', tpex_rows[0] if tpex_rows else 'empty')
-        if len(prices) < 100: raise ValueError('Not enough valid prices')
+
+        if len(prices) < 100:
+            raise ValueError('Not enough valid prices')
+
     except Exception as e:
         prices = {}
-        errors.append('價格：'+str(e))
+        errors.append('價格：' + str(e))
+
    
     
   
