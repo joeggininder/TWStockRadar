@@ -431,8 +431,15 @@ def main():
     local = now.astimezone(ZoneInfo('Asia/Taipei'))
     errors = []
     
+  
     try:
         prices = parse_prices(fetch(URLS['prices']))
+        print('TWSE price records:', len(prices))
+    except Exception as e:
+        prices = {}
+        errors.append('上市價格：' + str(e))
+
+    try:
         tpex_rows = fetch(URLS['tpex_prices'])
 
         for r in tpex_rows:
@@ -448,14 +455,13 @@ def main():
                     'trade_date': r.get('Date', '')
                 }
 
-        print('TPEx sample:', tpex_rows[0] if tpex_rows else 'empty')
-
-        if len(prices) < 100:
-            raise ValueError('Not enough valid prices')
+        print('TPEx price records:', len(tpex_rows))
 
     except Exception as e:
-        prices = {}
-        errors.append('價格：' + str(e))
+        errors.append('上櫃價格：' + str(e))
+
+    if len(prices) < 100:
+        errors.append('有效股價資料不足')
 
    
     
