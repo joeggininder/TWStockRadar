@@ -438,7 +438,7 @@ def main():
               close = num(r.get('Close'))
             
             
-                if len(sid) == 4 and sid.isdigit() and close is not None:
+            if len(sid) == 4 and sid.isdigit() and close is not None:
                     prices[sid] = {
                         'id': sid,
                         'name': r.get('CompanyName', ''),
