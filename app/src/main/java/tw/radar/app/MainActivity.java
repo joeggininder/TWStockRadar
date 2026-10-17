@@ -221,7 +221,6 @@ card.addView(text(
                 "成本：" + h.optString("cost") + " 元｜股數：" +
                 h.optString("shares"), 14, ink
             ));
-String stockId = h.optString("id", "").trim();
 double cost = h.optDouble("cost", 0);
 
 if (latestMarketData != null) {
