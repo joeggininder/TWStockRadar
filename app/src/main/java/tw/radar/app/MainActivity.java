@@ -193,9 +193,30 @@ public class MainActivity extends Activity {
             card.setPadding(18, 12, 18, 12);
             card.setBackgroundColor(Color.WHITE);
 
-            card.addView(text(
-                h.optString("id") + "｜" + periodName, 18, ink
-            ));
+           String stockId = h.optString("id").trim();
+String stockName = "";
+
+if (latestMarketData != null) {
+    JSONArray marketStocks = latestMarketData.optJSONArray("stocks");
+
+    if (marketStocks != null) {
+        for (int k = 0; k < marketStocks.length(); k++) {
+            JSONObject stock = marketStocks.optJSONObject(k);
+
+            if (stock != null &&
+                stockId.equals(stock.optString("id"))) {
+                stockName = stock.optString("name", "");
+                break;
+            }
+        }
+    }
+}
+
+card.addView(text(
+    stockId + (stockName.isEmpty() ? "" : " " + stockName)
+        + " | " + periodName,
+    18, ink
+));
             card.addView(text(
                 "成本：" + h.optString("cost") + " 元｜股數：" +
                 h.optString("shares"), 14, ink
