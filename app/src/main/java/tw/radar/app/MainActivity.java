@@ -28,9 +28,14 @@ public class MainActivity extends Activity {
         url=new EditText(this);url.setSingleLine(true);url.setText(prefs.getString("url","https://raw.githubusercontent.com/joeggininder/TWStockRadar/main/data/latest.json"));url.setHint("https://你的網域/data/latest.json");url.setTextSize(13);root.addView(url);
         Button refresh=new Button(this);refresh.setText("儲存網址並更新");root.addView(refresh);refresh.setOnClickListener(v->{String u=url.getText().toString().trim();prefs.edit().putString("url",u).apply();load(u);});
         status=text("尚未連接資料源。請設定公開 HTTPS JSON 網址。",13,Color.DKGRAY);root.addView(status);
-        root.addView(text("同時符合三條件",20,ink));items=new LinearLayout(this);items.setOrientation(1);root.addView(items);
-        root.addView(text("判斷條件：法人連買／大戶集中／融資退場",13,Color.DKGRAY));
         drawHoldingsSection();
+
+root.addView(text("同時符合三條件",20,ink));
+items = new LinearLayout(this);
+items.setOrientation(1);
+root.addView(items);
+
+root.addView(text("判斷條件：法人連買／大戶集中／融資退場",13,Color.DKGRAY));
         String u=prefs.getString("url","https://raw.githubusercontent.com/joeggininder/TWStockRadar/main/data/latest.json");if(!u.isEmpty())load(u);
     }
     private void load(String u){
