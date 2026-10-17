@@ -12,7 +12,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends Activity {
-    private LinearLayout root, items;
+    private LinearLayout root, items, holdingsItems;
     private TextView status;
     private EditText url;
     private final int ink=Color.rgb(20,32,52), teal=Color.rgb(0,122,110);
@@ -29,6 +29,7 @@ public class MainActivity extends Activity {
         status=text("尚未連接資料源。請設定公開 HTTPS JSON 網址。",13,Color.DKGRAY);root.addView(status);
         root.addView(text("同時符合三條件",20,ink));items=new LinearLayout(this);items.setOrientation(1);root.addView(items);
         root.addView(text("判斷條件：法人連買／大戶集中／融資退場",13,Color.DKGRAY));
+        drawHoldingsSection();
         String u=prefs.getString("url","https://raw.githubusercontent.com/joeggininder/TWStockRadar/main/data/latest.json");if(!u.isEmpty())load(u);
     }
     private void load(String u){
@@ -136,6 +137,225 @@ public class MainActivity extends Activity {
             "\n兩條件觀察：" + watchCount + " 檔" +
             "\n" + j.optString("notice", "")
         );
+    }
+
+    private JSONArray getHoldings() {
+        try {
+            return new JSONArray(prefs.getString("holdings", "[]"));
+        } catch (JSONException e) {
+            return new JSONArray();
+        }
+    }
+
+    private void saveHoldings(JSONArray data) {
+        prefs.edit().putString("holdings", data.toString()).apply();
+        refreshHoldings();
+    }
+
+    private void drawHoldingsSection() {
+        root.addView(text("我的持股（僅儲存在手機）", 20, ink));
+
+        Button add = new Button(this);
+        add.setText("＋ 新增持股");
+        root.addView(add);
+        add.setOnClickListener(v -> editHolding(-1));
+
+        holdingsItems = new LinearLayout(this);
+        holdingsItems.setOrientation(1);
+        root.addView(holdingsItems);
+        refreshHoldings();
+    }
+
+    private void refreshHoldings() {
+        if (holdingsItems == null) return;
+        holdingsItems.removeAllViews();
+
+        JSONArray data = getHoldings();
+
+        if (data.length() == 0) {
+            holdingsItems.addView(text("尚未新增持股", 14, Color.DKGRAY));
+        }
+
+        for (int i = 0; i < data.length(); i++) {
+            JSONObject h = data.optJSONObject(i);
+            if (h == null) continue;
+
+            final int index = i;
+            String period = h.optString("period", "swing");
+            String periodName = period.equals("short") ? "短線"
+                    : period.equals("long") ? "中長期" : "波段";
+
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(1);
+            card.setPadding(18, 12, 18, 12);
+            card.setBackgroundColor(Color.WHITE);
+
+            card.addView(text(
+                h.optString("id") + "｜" + periodName, 18, ink
+            ));
+            card.addView(text(
+                "成本：" + h.optString("cost") + " 元｜股數：" +
+                h.optString("shares"), 14, ink
+            ));
+
+            LinearLayout buttons = new LinearLayout(this);
+
+            Button edit = new Button(this);
+            edit.setText("修改");
+            edit.setOnClickListener(v -> editHolding(index));
+            buttons.addView(edit);
+
+            Button delete = new Button(this);
+            delete.setText("刪除");
+            delete.setOnClickListener(v ->
+                new AlertDialog.Builder(this)
+                    .setMessage("確定刪除 " + h.optString("id") + "？")
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("刪除", (d, w) -> {
+                        JSONArray old = getHoldings();
+                        JSONArray next = new JSONArray();
+                        for (int k = 0; k < old.length(); k++) {
+                            if (k != index) next.put(old.opt(k));
+                        }
+                        saveHoldings(next);
+                    }).show()
+            );
+            buttons.addView(delete);
+
+            card.addView(buttons);
+            holdingsItems.addView(card);
+
+            View gap = new View(this);
+            holdingsItems.addView(
+                gap, new LinearLayout.LayoutParams(1, 12)
+            );
+        }
+    }
+
+    private EditText holdingField(String hint, String value, int type) {
+        EditText field = new EditText(this);
+        field.setHint(hint);
+        field.setSingleLine(true);
+        field.setInputType(type);
+        field.setText(value);
+        return field;
+    }
+
+    private void editHolding(int index) {
+        JSONArray data = getHoldings();
+        JSONObject old = index >= 0 ? data.optJSONObject(index) : null;
+        if (old == null) old = new JSONObject();
+
+        LinearLayout fields = new LinearLayout(this);
+        fields.setOrientation(1);
+        fields.setPadding(32, 8, 32, 0);
+
+        EditText id = holdingField(
+            "股票代號（4 碼）", old.optString("id"), 2
+        );
+        EditText cost = holdingField(
+            "平均成本（元）", old.optString("cost"), 8194
+        );
+        EditText shares = holdingField(
+            "持有股數", old.optString("shares"), 2
+        );
+
+        fields.addView(id);
+        fields.addView(cost);
+        fields.addView(shares);
+        fields.addView(text("投資週期", 14, ink));
+
+        Spinner spinner = new Spinner(this);
+        String[] options = {"短線", "波段", "中長期"};
+        spinner.setAdapter(new ArrayAdapter<String>(
+            this, android.R.layout.simple_spinner_dropdown_item, options
+        ));
+
+        String previous = old.optString("period", "swing");
+        spinner.setSelection(
+            previous.equals("short") ? 0 :
+            previous.equals("long") ? 2 : 1
+        );
+        fields.addView(spinner);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle(index >= 0 ? "修改持股" : "新增持股")
+            .setView(fields)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("儲存", null)
+            .create();
+
+        dialog.setOnShowListener(v ->
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(btn -> {
+
+                String sid = id.getText().toString().trim();
+                String price = cost.getText().toString().trim();
+                String amount = shares.getText().toString().trim();
+
+                if (!sid.matches("[0-9]{4}")) {
+                    id.setError("請輸入 4 碼股票代號");
+                    return;
+                }
+
+                double costValue;
+                long shareValue;
+
+                try {
+                    costValue = Double.parseDouble(price);
+                    shareValue = Long.parseLong(amount);
+
+                    if (Double.isNaN(costValue) ||
+                        Double.isInfinite(costValue) ||
+                        costValue <= 0 || shareValue <= 0) {
+                        throw new NumberFormatException();
+                    }
+                } catch (NumberFormatException e) {
+                    cost.setError("請輸入有效的正數成本與整數股數");
+                    return;
+                }
+
+                JSONArray current = getHoldings();
+
+                for (int i = 0; i < current.length(); i++) {
+                    JSONObject h = current.optJSONObject(i);
+                    if (i != index && h != null &&
+                        sid.equals(h.optString("id"))) {
+                        id.setError("股票已存在，請使用修改功能");
+                        return;
+                    }
+                }
+
+                JSONObject item = new JSONObject();
+
+                try {
+                    item.put("id", sid);
+                    item.put("cost", costValue);
+                    item.put("shares", shareValue);
+                    item.put("period",
+                        spinner.getSelectedItemPosition() == 0 ? "short" :
+                        spinner.getSelectedItemPosition() == 2 ? "long" :
+                        "swing"
+                    );
+
+                    if (index >= 0) {
+                        current.put(index, item);
+                    } else {
+                        current.put(item);
+                    }
+
+                    saveHoldings(current);
+                    dialog.dismiss();
+
+                } catch (JSONException e) {
+                    Toast.makeText(
+                        this, "儲存失敗", Toast.LENGTH_SHORT
+                    ).show();
+                }
+            })
+        );
+
+        dialog.show();
     }
 
 }
