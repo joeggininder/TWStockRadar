@@ -17,6 +17,7 @@ public class MainActivity extends Activity {
     private EditText url;
     private final int ink=Color.rgb(20,32,52), teal=Color.rgb(0,122,110);
     private SharedPreferences prefs;
+    private JSONObject latestMarketData;
     @Override public void onCreate(Bundle b) { super.onCreate(b); prefs=getSharedPreferences("radar",MODE_PRIVATE); draw(); }
     private TextView text(String s,int size,int color){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);t.setPadding(4,8,4,8);return t;}
     private void draw(){
@@ -46,6 +47,8 @@ public class MainActivity extends Activity {
     }
     
     private void render(JSONObject j) {
+        latestMarketData = j;
+        refreshHoldings();
         String date = j.optString("generated_at", "未提供");
         JSONArray stocks = j.optJSONArray("stocks");
         items.removeAllViews();
@@ -153,7 +156,7 @@ public class MainActivity extends Activity {
     }
 
     private void drawHoldingsSection() {
-        root.addView(text("我的持股（僅儲存在手機）", 20, ink));
+        root.addView(text("我的持股", 20, ink));
 
         Button add = new Button(this);
         add.setText("＋ 新增持股");
@@ -197,7 +200,58 @@ public class MainActivity extends Activity {
                 "成本：" + h.optString("cost") + " 元｜股數：" +
                 h.optString("shares"), 14, ink
             ));
+String stockId = h.optString("id", "").trim();
+double cost = h.optDouble("cost", 0);
 
+if (latestMarketData != null) {
+    JSONArray marketStocks = latestMarketData.optJSONArray("stocks");
+
+    if (marketStocks != null) {
+        for (int k = 0; k < marketStocks.length(); k++) {
+            JSONObject stock = marketStocks.optJSONObject(k);
+
+            if (stock == null) continue;
+            if (!stockId.equals(stock.optString("id"))) continue;
+
+            double close = stock.optDouble("close", 0);
+
+            if (close > 0) {
+                card.addView(text(
+                    "最新收盤價：" + close + " 元",
+                    14, ink
+                ));
+
+                if (cost > 0) {
+                    double profitPct = (close - cost) / cost * 100;
+
+                    int profitColor = profitPct >= 0
+                        ? Color.RED
+                        : Color.rgb(0, 140, 70);
+
+                    card.addView(text(
+                        String.format(
+                            java.util.Locale.TAIWAN,
+                            "目前損益：%+.2f%%",
+                            profitPct
+                        ),
+                        16, profitColor
+                    ));
+                }
+
+                String tradeDate = stock.optString("trade_date", "");
+
+                if (!tradeDate.isEmpty()) {
+                    card.addView(text(
+                        "股價日期：" + tradeDate,
+                        13, Color.DKGRAY
+                    ));
+                }
+            }
+
+            break;
+        }
+    }
+}
             LinearLayout buttons = new LinearLayout(this);
 
             Button edit = new Button(this);
