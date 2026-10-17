@@ -43,21 +43,99 @@ public class MainActivity extends Activity {
             }catch(Exception e){runOnUiThread(()->status.setText("更新失敗："+e.getMessage()+"（保留上次畫面）"));}
         }).start();
     }
-    private void render(JSONObject j){
-        String date=j.optString("generated_at","未提供");JSONArray stocks=j.optJSONArray("stocks");items.removeAllViews();int count=0;
-        if(stocks!=null)for(int i=0;i<stocks.length();i++){
-            JSONObject s=stocks.optJSONObject(i);if(s==null)continue;
-            JSONObject c=s.optJSONObject("checks");if(c==null)continue;
-           boolean all=c.optBoolean("institutional",false)&&c.optBoolean("holders",false)&&c.optBoolean("retail",false);
-            if(!all)continue;count++;
-            LinearLayout card=new LinearLayout(this);card.setOrientation(1);card.setPadding(18,14,18,14);card.setBackgroundColor(Color.WHITE);
-            card.addView(text(s.optString("id")+"  "+s.optString("name"),20,ink));
-            card.addView(text("收盤價："+s.optString("close","缺資料")+"｜交易日："+s.optString("trade_date","缺資料"),14,ink));
-            card.addView(text("法人 ✓  大戶 ✓  融資 ✓",14,teal));
-            card.addView(text(s.optString("evidence","詳情缺資料"),13,Color.DKGRAY));
-            items.addView(card);View space=new View(this);items.addView(space,new LinearLayout.LayoutParams(1,14));
+    
+    private void render(JSONObject j) {
+        String date = j.optString("generated_at", "未提供");
+        JSONArray stocks = j.optJSONArray("stocks");
+        items.removeAllViews();
+
+        int fullCount = 0;
+        int watchCount = 0;
+
+        LinearLayout watchItems = new LinearLayout(this);
+        watchItems.setOrientation(1);
+
+        if (stocks != null) {
+            for (int i = 0; i < stocks.length(); i++) {
+                JSONObject s = stocks.optJSONObject(i);
+                if (s == null) continue;
+
+                JSONObject c = s.optJSONObject("checks");
+                if (c == null) continue;
+
+                boolean institutional = c.optBoolean("institutional", false);
+                boolean holders = c.optBoolean("holders", false);
+                boolean retail = c.optBoolean("retail", false);
+
+                int matched = (institutional ? 1 : 0)
+                            + (holders ? 1 : 0)
+                            + (retail ? 1 : 0);
+
+                if (matched < 2) continue;
+
+                LinearLayout card = new LinearLayout(this);
+                card.setOrientation(1);
+                card.setPadding(18, 14, 18, 14);
+                card.setBackgroundColor(Color.WHITE);
+
+                card.addView(text(
+                    s.optString("id") + "  " + s.optString("name"),
+                    20, ink
+                ));
+
+                card.addView(text(
+                    "收盤價：" + s.optString("close", "缺資料"),
+                    14, ink
+                ));
+
+                card.addView(text(
+                    "法人 " + (institutional ? "✓" : "—") +
+                    "  大戶 " + (holders ? "✓" : "—") +
+                    "  融資 " + (retail ? "✓" : "—"),
+                    14, teal
+                ));
+
+                if (matched == 3) {
+                    fullCount++;
+                    items.addView(card);
+                    items.addView(new View(this),
+                        new LinearLayout.LayoutParams(1, 14));
+                } else {
+                    watchCount++;
+                    watchItems.addView(card);
+                    watchItems.addView(new View(this),
+                        new LinearLayout.LayoutParams(1, 14));
+                }
+            }
         }
-       if(count==0)items.addView(text("目前沒有可驗證、同時符合三項條件的股票。這不代表市場上一定沒有，而是已取得資料中沒有確認符合者。",14,Color.DKGRAY));
-        status.setText("資料產生時間："+date+"｜已確認符合："+count+" 檔。\n"+j.optString("notice",""));
+
+        if (fullCount == 0) {
+            items.addView(text(
+                "目前沒有同時符合三項條件的股票。",
+                14, Color.DKGRAY
+            ));
+        }
+
+        items.addView(text(
+            "符合兩項條件的觀察名單（" + watchCount + " 檔）",
+            20, ink
+        ));
+
+        if (watchCount == 0) {
+            items.addView(text(
+                "目前沒有符合兩項條件的股票。",
+                14, Color.DKGRAY
+            ));
+        } else {
+            items.addView(watchItems);
+        }
+
+        status.setText(
+            "資料產生時間：" + date +
+            "\n三條件符合：" + fullCount + " 檔" +
+            "\n兩條件觀察：" + watchCount + " 檔" +
+            "\n" + j.optString("notice", "")
+        );
     }
+
 }
