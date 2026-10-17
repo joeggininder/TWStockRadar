@@ -17,6 +17,7 @@ BASE = 'https://openapi.twse.com.tw/v1/exchangeReport/'
 
 URLS = {
     'prices': BASE + 'STOCK_DAY_ALL',
+    'tpex_prices': 'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes',
     'institutional': 'https://www.twse.com.tw/rwd/zh/fund/T86',
     'margin': 'https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN',
     'tdcc': 'https://opendata.tdcc.com.tw/getOD.ashx?id=1-5'
@@ -431,6 +432,8 @@ def main():
     errors = []
     try:
         prices = parse_prices(fetch(URLS['prices']))
+        tpex_rows = fetch(URLS['tpex_prices'])
+        print('TPEx sample:', tpex_rows[0] if tpex_rows else 'empty')
         if len(prices) < 100: raise ValueError('Not enough valid prices')
     except Exception as e:
         prices = {}
